@@ -1,0 +1,28 @@
+# Dependency folders
+node_modules/
+web/node_modules/
+
+# Next.js build outputs & caches
+.next/
+web/.next/
+out/
+build/
+
+# Private streaming data JSON files
+Data/
+
+# Environment files containing secrets
+.env
+.env.local
+*.env
+
+# IDE and OS metadata
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Python cache & virtual environment
+__pycache__/
+*.pyc
+venv/

@@ -1,0 +1,10 @@
+{
+  "dependencies": {
+    "clsx": "^2.1.1",
+    "d3-scale": "^4.0.2",
+    "react-simple-maps": "^5.0.5"
+  },
+  "devDependencies": {
+    "@types/react-simple-maps": "^3.0.6"
+  }
+}
