@@ -172,19 +172,45 @@ function computeAll(raw: RawRow[]) {
 interface DashboardProps {
   spotifyUser: SpotifyUserProfile | null
   artistOrigins: ArtistOrigin[] | null
-  initialRows: RawRow[]
 }
 
-export default function Dashboard({ spotifyUser, artistOrigins, initialRows }: DashboardProps) {
+export default function Dashboard({ spotifyUser, artistOrigins }: DashboardProps) {
   const [loading, setLoading] = useState(true)
-  const [rawRows, setRawRows] = useState<RawRow[]>(initialRows)
+  const [rawRows, setRawRows] = useState<RawRow[]>([])
   const [filters, setFilters] = useState<DashboardFilters>({})
   const [fetchProgress, setFetchProgress] = useState(0)
 
   useEffect(() => {
-    setFetchProgress(100)
-    setLoading(false)
-  }, [initialRows])
+    let cancelled = false
+
+    async function loadData() {
+      setFetchProgress(10)
+      const res = await fetch('/api/data')
+      setFetchProgress(90)
+      if (!res.ok) {
+        console.error('Failed to fetch data')
+        setLoading(false)
+        return
+      }
+      const rows: RawRow[] = await res.json()
+      setFetchProgress(100)
+      if (!cancelled) {
+        setRawRows(rows)
+        setLoading(false)
+      }
+    }
+
+    loadData()
+
+    const refreshInterval = setInterval(() => {
+      if (!cancelled) loadData()
+    }, 2 * 60 * 1000)
+
+    return () => {
+      cancelled = true
+      clearInterval(refreshInterval)
+    }
+  }, [])
 
   const onFilterChange = useCallback((newFilter: Partial<DashboardFilters>) => {
     setFilters((prev) => {

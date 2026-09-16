@@ -8,9 +8,6 @@ import Dashboard from '@/components/Dashboard'
 
 export const dynamic = 'force-dynamic'
 
-const LISTENING_HISTORY_COLUMNS = 'ts, ms_played, artist_name, track_name, reason_end' as const
-const BATCH_SIZE = 10000
-
 async function refreshSpotifyToken(): Promise<string | null> {
   const refreshToken = process.env.SPOTIFY_REFRESH_TOKEN
   if (!refreshToken) return null
@@ -74,27 +71,10 @@ export default async function DashboardPage() {
 
   const artistOrigins = (originsData ?? []) as ArtistOrigin[]
 
-  let allRows: { ts: string | null; ms_played: number | null; artist_name: string | null; track_name: string | null; reason_end: string | null }[] = []
-  let offset = 0
-  // eslint-disable-next-line no-constant-condition
-  while (true) {
-    const { data, error } = await supabase
-      .from('listening_history')
-      .select(LISTENING_HISTORY_COLUMNS)
-      .order('ts', { ascending: false })
-      .range(offset, offset + BATCH_SIZE - 1)
-
-    if (error || !data || data.length === 0) break
-    allRows.push(...data)
-    offset += data.length
-    if (data.length < BATCH_SIZE) break
-  }
-
   return (
     <Dashboard
       spotifyUser={spotifyUser}
       artistOrigins={artistOrigins}
-      initialRows={allRows}
     />
   )
 }
