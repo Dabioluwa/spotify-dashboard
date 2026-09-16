@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { supabase } from '@/lib/supabase'
 import type {
   TopArtist,
   TopSong,
@@ -30,6 +29,18 @@ import { MusicBars } from '@/components/LottieAnimations'
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const ORDERED_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+
+async function fetchPostgrest(offset: number, limit: number) {
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/listening_history?select=played_at,ms_played,artist_name,track_name,reason_end&order=played_at.desc&offset=${offset}&limit=${limit}`,
+    { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
+  )
+  if (!res.ok) return []
+  return res.json()
+}
 
 interface RawRow {
   played_at: string | null
@@ -189,24 +200,17 @@ export default function Dashboard({ spotifyUser, artistOrigins }: DashboardProps
       let offset = 0
       const batchSize = 1000
 
-      const { count } = await supabase
-        .from('listening_history')
-        .select('*', { count: 'exact', head: true })
-      const totalRows = count ?? 0
+      const countRes = await fetch(
+        `${SUPABASE_URL}/rest/v1/listening_history?select=count`,
+        { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, Prefer: 'count=exact' } }
+      )
+      const totalRows = parseInt(countRes.headers.get('content-range')?.split('/')[1] ?? '0', 10)
 
       // eslint-disable-next-line no-constant-condition
       while (true) {
-        const { data, error } = await supabase
-          .from('listening_history')
-          .select('played_at, ms_played, artist_name, track_name, reason_end')
-          .range(offset, offset + batchSize - 1)
-
-        if (error) {
-          console.error('Batch fetch error at offset', offset, error)
-          break
-        }
+        const data = await fetchPostgrest(offset, batchSize)
         if (!data || data.length === 0) break
-        allRows.push(...(data as RawRow[]))
+        allRows.push(...data)
         offset += batchSize
         if (isInitialLoad) {
           setFetchProgress(totalRows > 0 ? Math.min(Math.round((allRows.length / totalRows) * 100), 100) : 0)
