@@ -48,22 +48,36 @@ export default function Dashboard({ spotifyUser, artistOrigins }: DashboardProps
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState<DashboardData | null>(null)
   const [filters, setFilters] = useState<DashboardFilters>({})
+  const [fetchProgress, setFetchProgress] = useState(0)
 
   useEffect(() => {
     let cancelled = false
+    let progressInterval: ReturnType<typeof setInterval> | null = null
 
     async function loadData() {
+      setFetchProgress(5)
+      const startTime = Date.now()
+
+      progressInterval = setInterval(() => {
+        if (cancelled) return
+        const elapsed = Date.now() - startTime
+        const estimated = Math.min(90, Math.round((elapsed / 15000) * 90))
+        setFetchProgress(estimated)
+      }, 200)
+
       const params = new URLSearchParams()
       if (filters.year) params.set('year', filters.year)
       if (filters.artist) params.set('artist', filters.artist)
 
       const url = `/api/dashboard${params.toString() ? `?${params}` : ''}`
       const res = await fetch(url)
+      if (progressInterval) clearInterval(progressInterval)
       if (!res.ok) return
       const json: DashboardData = await res.json()
       if (!cancelled) {
+        setFetchProgress(100)
         setData(json)
-        setLoading(false)
+        setTimeout(() => setLoading(false), 300)
       }
     }
 
@@ -75,6 +89,7 @@ export default function Dashboard({ spotifyUser, artistOrigins }: DashboardProps
 
     return () => {
       cancelled = true
+      if (progressInterval) clearInterval(progressInterval)
       clearInterval(refreshInterval)
     }
   }, [filters.year, filters.artist])
@@ -122,6 +137,13 @@ export default function Dashboard({ spotifyUser, artistOrigins }: DashboardProps
             <MusicBars />
           </div>
           <p className="mb-4 text-sm font-medium text-zinc-300">Loading dashboard...</p>
+          <div className="h-2 overflow-hidden rounded-full bg-zinc-800">
+            <div
+              className="h-full rounded-full bg-emerald-500 transition-all duration-300 ease-out"
+              style={{ width: `${fetchProgress}%` }}
+            />
+          </div>
+          <p className="mt-3 text-xs text-zinc-500">{fetchProgress}%</p>
         </div>
       </div>
     )

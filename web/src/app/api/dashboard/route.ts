@@ -144,7 +144,7 @@ export async function GET(request: NextRequest) {
 
   const allRows: RawRow[] = []
   let offset = 0
-  const batchSize = 1000
+  const batchSize = 10000
 
   // eslint-disable-next-line no-constant-condition
   while (true) {
