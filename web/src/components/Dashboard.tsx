@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { supabase } from '@/lib/supabase'
+
 import type {
   TopArtist,
   TopSong,
@@ -172,60 +172,19 @@ function computeAll(raw: RawRow[]) {
 interface DashboardProps {
   spotifyUser: SpotifyUserProfile | null
   artistOrigins: ArtistOrigin[] | null
+  initialRows: RawRow[]
 }
 
-export default function Dashboard({ spotifyUser, artistOrigins }: DashboardProps) {
+export default function Dashboard({ spotifyUser, artistOrigins, initialRows }: DashboardProps) {
   const [loading, setLoading] = useState(true)
-  const [rawRows, setRawRows] = useState<RawRow[]>([])
+  const [rawRows, setRawRows] = useState<RawRow[]>(initialRows)
   const [filters, setFilters] = useState<DashboardFilters>({})
   const [fetchProgress, setFetchProgress] = useState(0)
 
   useEffect(() => {
-    let cancelled = false
-
-    async function loadData() {
-      const allRows: RawRow[] = []
-      let offset = 0
-      const batchSize = 10000
-
-      // eslint-disable-next-line no-constant-condition
-      while (true) {
-        const { data, error } = await supabase
-          .from('listening_history')
-          .select('ts, ms_played, artist_name, track_name, reason_end')
-          .order('ts', { ascending: false })
-          .limit(batchSize)
-          .range(offset, offset + batchSize - 1)
-
-        if (error) {
-          console.error('Batch fetch error at offset', offset, error)
-          break
-        }
-        if (!data || data.length === 0) break
-        allRows.push(...(data as RawRow[]))
-        offset += data.length
-        setFetchProgress(Math.min(Math.round((allRows.length / 92000) * 100), 100))
-        if (data.length < batchSize) break
-      }
-
-      if (!cancelled) {
-        setRawRows(allRows)
-        setLoading(false)
-      }
-    }
-
-    loadData()
-
-    // Re-fetch data every 2 minutes to pick up new synced rows
-    const refreshInterval = setInterval(() => {
-      if (!cancelled) loadData()
-    }, 2 * 60 * 1000)
-
-    return () => {
-      cancelled = true
-      clearInterval(refreshInterval)
-    }
-  }, [])
+    setFetchProgress(100)
+    setLoading(false)
+  }, [initialRows])
 
   const onFilterChange = useCallback((newFilter: Partial<DashboardFilters>) => {
     setFilters((prev) => {
