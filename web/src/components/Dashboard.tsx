@@ -186,7 +186,7 @@ export default function Dashboard({ spotifyUser, artistOrigins }: DashboardProps
     async function loadData() {
       const allRows: RawRow[] = []
       let offset = 0
-      const batchSize = 30000
+      const batchSize = 10000
 
       // eslint-disable-next-line no-constant-condition
       while (true) {
