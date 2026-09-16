@@ -182,6 +182,7 @@ export default function Dashboard({ spotifyUser, artistOrigins }: DashboardProps
 
   useEffect(() => {
     let cancelled = false
+    let isInitialLoad = true
 
     async function loadData() {
       const allRows: RawRow[] = []
@@ -207,19 +208,21 @@ export default function Dashboard({ spotifyUser, artistOrigins }: DashboardProps
         if (!data || data.length === 0) break
         allRows.push(...(data as RawRow[]))
         offset += batchSize
-        setFetchProgress(totalRows > 0 ? Math.min(Math.round((allRows.length / totalRows) * 100), 100) : 0)
+        if (isInitialLoad) {
+          setFetchProgress(totalRows > 0 ? Math.min(Math.round((allRows.length / totalRows) * 100), 100) : 0)
+        }
         if (data.length < batchSize) break
       }
 
       if (!cancelled) {
         setRawRows(allRows)
         setLoading(false)
+        isInitialLoad = false
       }
     }
 
     loadData()
 
-    // Re-fetch data every 2 minutes to pick up new synced rows
     const refreshInterval = setInterval(() => {
       if (!cancelled) loadData()
     }, 2 * 60 * 1000)
