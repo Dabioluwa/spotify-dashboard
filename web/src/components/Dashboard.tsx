@@ -194,6 +194,7 @@ export default function Dashboard({ spotifyUser, artistOrigins }: DashboardProps
           .from('listening_history')
           .select('ts, ms_played, artist_name, track_name, reason_end')
           .order('ts', { ascending: false })
+          .limit(batchSize)
           .range(offset, offset + batchSize - 1)
 
         if (error) {
