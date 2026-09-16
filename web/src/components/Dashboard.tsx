@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-
+import { supabase } from '@/lib/supabase'
 import type {
   TopArtist,
   TopSong,
@@ -32,7 +32,7 @@ const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const ORDERED_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
 interface RawRow {
-  ts: string | null
+  played_at: string | null
   ms_played: number | null
   artist_name: string | null
   track_name: string | null
@@ -41,8 +41,8 @@ interface RawRow {
 
 function filterRows(rows: RawRow[], year?: string, artist?: string): RawRow[] {
   return rows.filter((row) => {
-    if (!row.ts) return false
-    const date = new Date(row.ts)
+    if (!row.played_at) return false
+    const date = new Date(row.played_at)
     if (isNaN(date.getTime())) return false
     if (year && String(date.getUTCFullYear()) !== year) return false
     if (artist && row.artist_name !== artist) return false
@@ -69,8 +69,8 @@ function computeAll(raw: RawRow[]) {
   }>()
 
   for (const row of raw) {
-    if (!row.ts) continue
-    const date = new Date(row.ts)
+    if (!row.played_at) continue
+    const date = new Date(row.played_at)
     if (isNaN(date.getTime())) continue
     const ms = row.ms_played ?? 0
     const hours = ms / 3_600_000
@@ -184,24 +184,42 @@ export default function Dashboard({ spotifyUser, artistOrigins }: DashboardProps
     let cancelled = false
 
     async function loadData() {
-      setFetchProgress(10)
-      const res = await fetch('/api/data')
-      setFetchProgress(90)
-      if (!res.ok) {
-        console.error('Failed to fetch data')
-        setLoading(false)
-        return
+      const allRows: RawRow[] = []
+      let offset = 0
+      const batchSize = 1000
+
+      const { count } = await supabase
+        .from('listening_history')
+        .select('*', { count: 'exact', head: true })
+      const totalRows = count ?? 0
+
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const { data, error } = await supabase
+          .from('listening_history')
+          .select('played_at, ms_played, artist_name, track_name, reason_end')
+          .range(offset, offset + batchSize - 1)
+
+        if (error) {
+          console.error('Batch fetch error at offset', offset, error)
+          break
+        }
+        if (!data || data.length === 0) break
+        allRows.push(...(data as RawRow[]))
+        offset += batchSize
+        setFetchProgress(totalRows > 0 ? Math.min(Math.round((allRows.length / totalRows) * 100), 100) : 0)
+        if (data.length < batchSize) break
       }
-      const rows: RawRow[] = await res.json()
-      setFetchProgress(100)
+
       if (!cancelled) {
-        setRawRows(rows)
+        setRawRows(allRows)
         setLoading(false)
       }
     }
 
     loadData()
 
+    // Re-fetch data every 2 minutes to pick up new synced rows
     const refreshInterval = setInterval(() => {
       if (!cancelled) loadData()
     }, 2 * 60 * 1000)
@@ -234,8 +252,8 @@ export default function Dashboard({ spotifyUser, artistOrigins }: DashboardProps
   const availableYears = useMemo(() => {
     const years = new Set<string>()
     for (const row of rawRows) {
-      if (!row.ts) continue
-      const d = new Date(row.ts)
+      if (!row.played_at) continue
+      const d = new Date(row.played_at)
       if (isNaN(d.getTime())) continue
       years.add(String(d.getUTCFullYear()))
     }
