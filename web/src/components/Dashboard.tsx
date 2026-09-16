@@ -186,7 +186,7 @@ export default function Dashboard({ spotifyUser, artistOrigins }: DashboardProps
     async function loadData() {
       const allRows: RawRow[] = []
       let offset = 0
-      const batchSize = 100000
+      const batchSize = 30000
 
       // eslint-disable-next-line no-constant-condition
       while (true) {
@@ -203,7 +203,7 @@ export default function Dashboard({ spotifyUser, artistOrigins }: DashboardProps
         if (!data || data.length === 0) break
         allRows.push(...(data as RawRow[]))
         offset += batchSize
-        setFetchProgress(data.length < batchSize ? 100 : 50)
+        setFetchProgress(Math.min(Math.round((allRows.length / 92000) * 100), 100))
         if (data.length < batchSize) break
       }
 
