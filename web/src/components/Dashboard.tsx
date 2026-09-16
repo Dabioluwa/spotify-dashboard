@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import type {
   TopArtist,
   TopSong,
@@ -49,21 +49,20 @@ export default function Dashboard({ spotifyUser, artistOrigins }: DashboardProps
   const [data, setData] = useState<DashboardData | null>(null)
   const [filters, setFilters] = useState<DashboardFilters>({})
   const [fetchProgress, setFetchProgress] = useState(0)
+  const loadCountRef = useRef(0)
 
   useEffect(() => {
     let cancelled = false
-    let progressInterval: ReturnType<typeof setInterval> | null = null
+    loadCountRef.current += 1
+    const thisLoad = loadCountRef.current
 
     async function loadData() {
       setFetchProgress(5)
-      const startTime = Date.now()
 
-      progressInterval = setInterval(() => {
-        if (cancelled) return
-        const elapsed = Date.now() - startTime
-        const estimated = Math.min(90, Math.round((elapsed / 15000) * 90))
-        setFetchProgress(estimated)
-      }, 200)
+      const progressTimer = setInterval(() => {
+        if (cancelled || thisLoad !== loadCountRef.current) return
+        setFetchProgress((prev) => Math.min(prev + 3, 90))
+      }, 300)
 
       const params = new URLSearchParams()
       if (filters.year) params.set('year', filters.year)
@@ -71,13 +70,15 @@ export default function Dashboard({ spotifyUser, artistOrigins }: DashboardProps
 
       const url = `/api/dashboard${params.toString() ? `?${params}` : ''}`
       const res = await fetch(url)
-      if (progressInterval) clearInterval(progressInterval)
+      clearInterval(progressTimer)
       if (!res.ok) return
       const json: DashboardData = await res.json()
-      if (!cancelled) {
+      if (!cancelled && thisLoad === loadCountRef.current) {
         setFetchProgress(100)
         setData(json)
-        setTimeout(() => setLoading(false), 300)
+        setTimeout(() => {
+          if (!cancelled && thisLoad === loadCountRef.current) setLoading(false)
+        }, 300)
       }
     }
 
@@ -89,7 +90,6 @@ export default function Dashboard({ spotifyUser, artistOrigins }: DashboardProps
 
     return () => {
       cancelled = true
-      if (progressInterval) clearInterval(progressInterval)
       clearInterval(refreshInterval)
     }
   }, [filters.year, filters.artist])
