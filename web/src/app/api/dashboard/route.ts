@@ -144,17 +144,22 @@ export async function GET(request: NextRequest) {
 
   const allRows: RawRow[] = []
   let offset = 0
-  const batchSize = 10000
+  const batchSize = 1000
 
   // eslint-disable-next-line no-constant-condition
   while (true) {
-    const { data, error } = await supabase
-      .from('listening_history')
-      .select('played_at, ms_played, artist_name, track_name, reason_end')
-      .order('played_at', { ascending: false })
-      .range(offset, offset + batchSize - 1)
-
-    if (error || !data || data.length === 0) break
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/listening_history?select=played_at,ms_played,artist_name,track_name,reason_end&order=played_at.desc&offset=${offset}&limit=${batchSize}`,
+      {
+        headers: {
+          apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+          Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
+        },
+      }
+    )
+    if (!res.ok) break
+    const data: RawRow[] = await res.json()
+    if (!data || data.length === 0) break
     allRows.push(...data)
     offset += data.length
     if (data.length < batchSize) break
