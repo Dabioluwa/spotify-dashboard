@@ -32,7 +32,7 @@ const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const ORDERED_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
 interface RawRow {
-  played_at: string | null
+  ts: string | null
   ms_played: number | null
   artist_name: string | null
   track_name: string | null
@@ -41,8 +41,8 @@ interface RawRow {
 
 function filterRows(rows: RawRow[], year?: string, artist?: string): RawRow[] {
   return rows.filter((row) => {
-    if (!row.played_at) return false
-    const date = new Date(row.played_at)
+    if (!row.ts) return false
+    const date = new Date(row.ts)
     if (isNaN(date.getTime())) return false
     if (year && String(date.getUTCFullYear()) !== year) return false
     if (artist && row.artist_name !== artist) return false
@@ -69,8 +69,8 @@ function computeAll(raw: RawRow[]) {
   }>()
 
   for (const row of raw) {
-    if (!row.played_at) continue
-    const date = new Date(row.played_at)
+    if (!row.ts) continue
+    const date = new Date(row.ts)
     if (isNaN(date.getTime())) continue
     const ms = row.ms_played ?? 0
     const hours = ms / 3_600_000
@@ -186,18 +186,18 @@ export default function Dashboard({ spotifyUser, artistOrigins }: DashboardProps
     async function loadData() {
       const allRows: RawRow[] = []
       const batchSize = 10000
-      let lastPlayedAt: string | null = null
+      let lastTs: string | null = null
 
       // eslint-disable-next-line no-constant-condition
       while (true) {
         let query = supabase
           .from('listening_history')
-          .select('played_at, ms_played, artist_name, track_name, reason_end')
-          .order('played_at', { ascending: false })
+          .select('ts, ms_played, artist_name, track_name, reason_end')
+          .order('ts', { ascending: false })
           .limit(batchSize)
 
-        if (lastPlayedAt) {
-          query = query.lt('played_at', lastPlayedAt)
+        if (lastTs) {
+          query = query.lt('ts', lastTs)
         }
 
         const { data, error } = await query
@@ -208,7 +208,7 @@ export default function Dashboard({ spotifyUser, artistOrigins }: DashboardProps
         }
         if (!data || data.length === 0) break
         allRows.push(...(data as RawRow[]))
-        lastPlayedAt = data[data.length - 1].played_at
+        lastTs = data[data.length - 1].ts
         setFetchProgress(Math.min(Math.round((allRows.length / 92000) * 100), 100))
         if (data.length < batchSize) break
       }
@@ -254,8 +254,8 @@ export default function Dashboard({ spotifyUser, artistOrigins }: DashboardProps
   const availableYears = useMemo(() => {
     const years = new Set<string>()
     for (const row of rawRows) {
-      if (!row.played_at) continue
-      const d = new Date(row.played_at)
+      if (!row.ts) continue
+      const d = new Date(row.ts)
       if (isNaN(d.getTime())) continue
       years.add(String(d.getUTCFullYear()))
     }
