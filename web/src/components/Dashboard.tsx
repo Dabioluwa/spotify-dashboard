@@ -185,30 +185,24 @@ export default function Dashboard({ spotifyUser, artistOrigins }: DashboardProps
 
     async function loadData() {
       const allRows: RawRow[] = []
+      let offset = 0
       const batchSize = 10000
-      let lastTs: string | null = null
 
       // eslint-disable-next-line no-constant-condition
       while (true) {
-        let query = supabase
+        const { data, error } = await supabase
           .from('listening_history')
           .select('ts, ms_played, artist_name, track_name, reason_end')
           .order('ts', { ascending: false })
-          .limit(batchSize)
-
-        if (lastTs) {
-          query = query.lt('ts', lastTs)
-        }
-
-        const { data, error } = await query
+          .range(offset, offset + batchSize - 1)
 
         if (error) {
-          console.error('Batch fetch error:', error)
+          console.error('Batch fetch error at offset', offset, error)
           break
         }
         if (!data || data.length === 0) break
         allRows.push(...(data as RawRow[]))
-        lastTs = data[data.length - 1].ts
+        offset += data.length
         setFetchProgress(Math.min(Math.round((allRows.length / 92000) * 100), 100))
         if (data.length < batchSize) break
       }
